@@ -1,25 +1,60 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
+title: 'Reproducible Research: Peer Assessment 1'
+output:
   html_document:
-    keep_md: true
+    keep_md: yes
+  pdf_document: default
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
 ## Loading and preprocessing the data
-
-
+### Loading the data into R
+```{r load}
+read.csv("activity.csv") -> dat
+```
 
 ## What is mean total number of steps taken per day?
-
+### The mean and median steps/day are calculated below
+```{r total steps}
+aggregate(steps ~ date, dat, sum, rm.na = TRUE) -> per_day
+hist(per_day$steps, main = "Steps Per Day", xlab = "steps")
+mean(per_day$steps)
+median(per_day$steps)
+```
 
 
 ## What is the average daily activity pattern?
-
+### The average pattern starts and ends with no activity, with a peak around interval 835.
+```{r daily activity pattern}
+aggregate(steps ~ interval, dat, mean, rm.na = TRUE) -> per_interval
+plot(per_interval$interval, per_interval$steps, type = "l", xlab = "interval", ylab = "average steps")
+per_interval[which.max(per_interval$steps),]
+```
 
 
 ## Imputing missing values
-
-
-
+### Missing values are imputed by replacing them with the average of that interval across all days. This increases the total daily steps but doesn't largely impact the mean/median daily steps
+``` {r missing values}
+library(dplyr)
+inner_join(dat, per_interval, by = "interval") -> join
+mutate(join, fullsteps = ifelse(is.na(steps.x), steps.y, steps.x)) -> dat_full
+aggregate(fullsteps ~ date, dat_full, sum) -> per_day_full
+hist(per_day_full$fullsteps)
+mean(per_day_full$fullsteps)
+median(per_day_full$fullsteps)
+```
 ## Are there differences in activity patterns between weekdays and weekends?
+### There is more activity throughout the day on weekends
+``` {r weekdays and weekends}
+mutate(dat_full, week = ifelse(weekdays(as.POSIXct(dat$date)) == "Saturday" | weekdays(as.POSIXct(dat$date)) == "Sunday", "Weekend", "Weekday")) -> dat_days
+subset(dat_days, week == "Weekday") -> dat_wkday
+aggregate(fullsteps ~ interval, dat_wkday, mean) -> per_day_full_weekday
+subset(dat_days, week == "Weekend") -> dat_wkend
+aggregate(fullsteps ~ interval, dat_wkend, mean) -> per_day_full_weekend
+par(mfrow = c(2,1), mar = c(4,4,2,1))
+with(per_day_full_weekday, plot(interval, fullsteps, type = "l", main = "Weekday"))
+with(per_day_full_weekend, plot(interval, fullsteps, type = "l", main = "Weekend"))
+```
